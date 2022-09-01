@@ -6,9 +6,17 @@ include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup()
 
 set(CMAKE_CXX_STANDARD 20)
+set(CXX_STANDARD_REQUIRED TRUE)
 
-#add_executable(test test.cpp do_listen.cpp do_session.cpp)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-target_include_directories(test PRIVATE ${CONAN_INCLUDE_DIRS})
+set(CMAKE_CONFIGURATION_TYPES ${CMAKE_BUILD_TYPE})
+set(CMAKE_STATIC_LIBRARY_PREFIX "")
 
-target_link_libraries(test PRIVATE ${CONAN_LIBS})
+message("CONAN_BOOST_ROOT ${CONAN_BOOST_ROOT}")
+message("CONAN_INCLUDE_DIRS_BOOST ${CONAN_INCLUDE_DIRS_BOOST}")
+message("CONAN_LIB_DIRS_BOOST ${CONAN_LIB_DIRS_BOOST}")
+
+add_subdirectory(backend)

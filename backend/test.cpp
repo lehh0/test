@@ -1,90 +1,94 @@
-#include <boost/asio/spawn.hpp>
+#include "bl/http_connection_handler.hpp"
+
+#include <boost/asio/co_spawn.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/http/message.hpp>
 #include <boost/beast/version.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/signal_set.hpp>
 #include <iostream>
 
-namespace beast = boost::beast;
-namespace http = beast::http;
-namespace asio = boost::asio;
-using tcp = asio::ip::tcp;
+#include <include/result_code.hpp>
+#include <net/server/http_server.hpp>
 
-beast::string_view mime_type(beast::string_view path) {
-    using beast::iequals;
-    const auto ext = std::invoke([&path] {
-      if (const auto pos = path.rfind("."); pos != beast::string_view::npos) {
-          return path.substr(pos);
-      }
-      return beast::string_view();
-    });
-
-    if (iequals(ext, ".htm")) { return "text/html"; }
-    if (iequals(ext, ".html")) { return "text/html"; }
-    if (iequals(ext, ".php")) { return "text/html"; }
-    if (iequals(ext, ".css")) { return "text/css"; }
-    if (iequals(ext, ".txt")) { return "text/plain"; }
-    if (iequals(ext, ".js")) { return "application/javascript"; }
-    if (iequals(ext, ".json")) { return "application/json"; }
-    if (iequals(ext, ".xml")) { return "application/xml"; }
-    if (iequals(ext, ".swf")) { return "application/x-shockwave-flash"; }
-    if (iequals(ext, ".flv")) { return "video/x-flv"; }
-    if (iequals(ext, ".png")) { return "image/png"; }
-    if (iequals(ext, ".jpe")) { return "image/jpeg"; }
-    if (iequals(ext, ".jpeg")) { return "image/jpeg"; }
-    if (iequals(ext, ".jpg")) { return "image/jpeg"; }
-    if (iequals(ext, ".gif")) { return "image/gif"; }
-    if (iequals(ext, ".bmp")) { return "image/bmp"; }
-    if (iequals(ext, ".ico")) { return "image/vnd.microsoft.icon"; }
-    if (iequals(ext, ".tiff")) { return "image/tiff"; }
-    if (iequals(ext, ".tif")) { return "image/tiff"; }
-    if (iequals(ext, ".svg")) { return "image/svg+xml"; }
-    if (iequals(ext, ".svgz")) { return "image/svg+xml"; }
-    return "application/text";
-}
-std::string path_cat(beast::string_view base, beast::string_view path) {
-    if (base.empty()) { return std::string(path); }
-
-    auto result = std::string(base);
-
-#ifdef BOOST_MSVC
-    constexpr char path_separator = '\\';
-    if (result.back() == path_separator) { result.resize(result.size() - 1); }
-    result.append(path.data(), path.size());
-    for (auto &c: result) { c = (c == '/') ? path_separator : c; }
-#else
-    constexpr char path_separator = '/';
-    if (result.back() == path_separator) { result.resize(result.size() - 1); }
-    result.append(path.data(), path.size());
-#endif
-    return result;
+void PrintUsage() 
+{
+    std::wcerr << LR"(Usage: http-serve-coro <port> <doc_root> [threads]
+Example:
+http-server-coro 8080 . 1\n)";
 }
 
-void fail(beast::error_code ec, const char *what);
+ResultCode ToHttpConfig(int argc, char *argv[], net::server::HttpServer::Config &result) 
+{
+    // todo: log error reason
 
-
-void do_listen(asio::io_context &ioc, tcp::endpoint endpoint,
-               const std::shared_ptr<const std::string> &doc_root, asio::yield_context yield);
-
-int main(int argc, char *argv[]) {
-    if (argc != 4) {
-        std::cerr << "Usage: http-serve-coro <port> <doc_root> <threads>\n"
-                  << "Example:\n"
-                  << "http-server-coro 8080 . 1\n";
-        return EXIT_FAILURE;
+    if (argc < 3) 
+    {
+        return ResultCode::eFail;
     }
 
-    const auto port = boost::lexical_cast<unsigned short>(argv[1]);
-    const auto doc_root = std::make_shared<std::string>(argv[2]);
-    const auto threads = std::max(1, boost::lexical_cast<int>(argv[3]));
+    // todo: test cyrillic path
+    auto docRoot =
+            std::filesystem::absolute(std::filesystem::canonical(std::filesystem::path(argv[1])));
+    if (!std::filesystem::is_directory(docRoot)) 
+    { 
+        return ResultCode::eFail; 
+    }
 
-    auto ioc = asio::io_context(threads);
+    net::server::HttpServer::Config config;
 
-    asio::spawn(ioc, [&ioc, ep = tcp::endpoint(asio::ip::tcp::v4(), port), &doc_root](
-                             asio::yield_context yield) { do_listen(ioc, ep, doc_root, yield); });
+    config.docRoot = std::move(docRoot);
+    if (!boost::conversion::try_lexical_convert(argv[1], config.port)) 
+    {
+        return ResultCode::eFail;
+    }
 
-    ioc.run();
+    result = std::move(config);
+
+    return ResultCode::sOk;
+}
+
+size_t GetThreadsCount(int argc, char *argv[]) 
+{
+    size_t threadsCount{1};
+
+    if (argc <= 4
+        || !boost::conversion::try_lexical_convert(argv[1], threadsCount) 
+        || threadsCount < 1) 
+    {
+        // todo: log warning
+        return 1;
+    }
+    
+    return threadsCount;
+}
+
+int main(int argc, char *argv[]) 
+{
+    net::server::HttpServer::Config config;
+    if (ResultCode::eFail == ToHttpConfig(argc, argv, config)) 
+    {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+    const auto threads = GetThreadsCount(argc, argv);
+
+    auto ioContext = boost::asio::io_context(threads);
+
+    boost::asio::signal_set signals(ioContext, SIGINT, SIGTERM);
+    signals.async_wait([&](auto, auto) { ioContext.stop(); });
+
+    net::server::HttpServer httpServer {
+        config,
+        std::make_shared<bl::HttpConnectionHandler>(config.docRoot) };
+
+    boost::asio::co_spawn(ioContext, httpServer.Run(), boost::asio::detached);
+
+    ioContext.run();
 
     return EXIT_SUCCESS;
 }

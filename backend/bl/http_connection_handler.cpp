@@ -3,8 +3,10 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/http/read.hpp>
 #include <boost/beast/http/string_body.hpp>
+#include <spdlog/spdlog.h>
 
 #include <include/as_result.hpp>
+#include <include/contract.hpp>
 
 namespace bl {
 
@@ -17,11 +19,15 @@ std::pair<std::filesystem::path, std::string_view> ParseTarget(boost::beast::str
 
     if (queryStringBegin != boost::beast::string_view::npos) 
     {
+        spdlog::debug(BOOST_CURRENT_FUNCTION " query string found [{}]", queryStringBegin);
+
         auto const path = target.substr(0, queryStringBegin);
         target.remove_prefix(queryStringBegin);
 
         return {{path, std::filesystem::path::format::generic_format}, target};
     }
+
+    TRACE_DEBUG(" query string not found");
     return {{target, std::filesystem::path::format::generic_format}, {}};
 }
 
@@ -30,7 +36,8 @@ std::pair<std::filesystem::path, std::string_view> ParseTarget(boost::beast::str
 HttpConnectionHandler::HttpConnectionHandler(std::filesystem::path docRoot) 
     : m_docRoot(std::move(docRoot))
 {
-    // todo: pre check m_docRoot is valid
+    CHECK_SUCCEEDED(std::filesystem::is_directory(m_docRoot), 
+        "can't initialize docRoot 'cause it isn't directory")
 }
 
 HttpConnectionHandler::~HttpConnectionHandler() = default;
@@ -43,22 +50,30 @@ boost::asio::awaitable<void> HttpConnectionHandler::Handle(boost::asio::ip::tcp:
     for (;;)
     {
         boost::beast::http::request<boost::beast::http::string_body> request;
-
         // todo: customize timeouts
         stream.expires_after(std::chrono::seconds(30));
+
         auto result = co_await boost::beast::http::async_read(stream, buffer, request,
-            tools::as_result(boost::asio::use_awaitable));// TODO: use_async_result
+            tools::as_result(boost::asio::use_awaitable));// todo: use_async_result
 
         if (!result) 
         {
-            // todo: log error
+            TRACE_ERROR(std::format(
+                    " can't async_read from stream [{}]",
+                    result.error().to_string()))
             break;
         }
 
-        // todo: log "Got request: {} {}", req.method_string(), req.target()
+        auto method = request.method_string();
+        auto target = request.target();
+        TRACE_INFO(std::format(" got request [{}] [{}]", 
+                    std::string_view(method.data(), method.size()),
+                    std::string_view(target.data(), target.size())));
 
         auto [path, queryString] = ParseTarget(request.target());
+        TRACE_INFO(std::format(" path [{}] query [{}]", path.string(), queryString));
 
+        // todo: return requested file
     }
 }
 

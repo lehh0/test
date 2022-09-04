@@ -35,4 +35,13 @@ add_executable(backend ${SOURCE} ${NET_SOURCE} ${BL_SOURCE} ${INCLUDE_SOURCE})
 
 target_include_directories(backend PRIVATE ${CONAN_INCLUDE_DIRS} ${CMAKE_CURRENT_LIST_DIR})
 
-target_link_libraries(backend PRIVATE ${CONAN_LIBS})
+find_package(Boost REQUIRED)
+
+# todo: implement proper detection.
+add_library(std::coroutines INTERFACE IMPORTED)
+target_compile_options(std::coroutines INTERFACE -fcoroutines)
+
+target_link_libraries(backend PUBLIC 
+	std::coroutines
+    Boost::headers
+	${CONAN_LIBS})

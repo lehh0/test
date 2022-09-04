@@ -4,7 +4,8 @@
 enum class ResultCode : uint16_t 
 {
     sOk = 0,
-    eFail = 1,
+    eFalse = 1,
+    eFail = 2,
 };
 
 #endif// BACKEND_INCLUDE_RESULT_CODE

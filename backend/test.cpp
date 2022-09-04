@@ -1,41 +1,38 @@
-#include "bl/http_connection_handler.hpp"
-
+#include <iostream>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
-#include <boost/beast/http/message.hpp>
-#include <boost/beast/version.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/signal_set.hpp>
-#include <iostream>
+#include <spdlog/spdlog.h>
 
 #include <include/result_code.hpp>
+#include <include/logging.h>
 #include <net/server/http_server.hpp>
+#include <bl/http_connection_handler.hpp>
 
 void PrintUsage() 
 {
-    std::wcerr << LR"(Usage: http-serve-coro <port> <doc_root> [threads]
+    spdlog::info(R"(Usage: http-serve-coro <port> <doc_root> [threads]
 Example:
-http-server-coro 8080 . 1\n)";
+http-server-coro 8080 . 1\n)");
 }
 
 ResultCode ToHttpConfig(int argc, char *argv[], net::server::HttpServer::Config &result) 
 {
-    // todo: log error reason
-
     if (argc < 3) 
     {
+        spdlog::error("invalid args count");
         return ResultCode::eFail;
     }
 
     // todo: test cyrillic path
-    auto docRoot =
-            std::filesystem::absolute(std::filesystem::canonical(std::filesystem::path(argv[1])));
-    if (!std::filesystem::is_directory(docRoot)) 
-    { 
+    auto docRoot = absolute(canonical(std::filesystem::path(argv[1])));
+    if (!is_directory(docRoot)) 
+    {
+        spdlog::error("<doc_root> value [{}] isn't directory", docRoot.string());
         return ResultCode::eFail; 
     }
 
@@ -44,11 +41,11 @@ ResultCode ToHttpConfig(int argc, char *argv[], net::server::HttpServer::Config 
     config.docRoot = std::move(docRoot);
     if (!boost::conversion::try_lexical_convert(argv[1], config.port)) 
     {
+        spdlog::error("<port> can't convert port value [{}] to number", argv[1]);
         return ResultCode::eFail;
     }
 
     result = std::move(config);
-
     return ResultCode::sOk;
 }
 
@@ -60,15 +57,19 @@ size_t GetThreadsCount(int argc, char *argv[])
         || !boost::conversion::try_lexical_convert(argv[1], threadsCount) 
         || threadsCount < 1) 
     {
-        // todo: log warning
+        spdlog::warn("[threads] threads count set to 1");
         return 1;
     }
-    
+
+    spdlog::info("[threads] threads count set to [{}]", threadsCount);
     return threadsCount;
 }
 
 int main(int argc, char *argv[]) 
 {
+    std::shared_ptr<spdlog::logger> defaultLogger;
+    spdlog::set_default_logger(std::move(IntializeLogging()));
+
     net::server::HttpServer::Config config;
     if (ResultCode::eFail == ToHttpConfig(argc, argv, config)) 
     {

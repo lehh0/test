@@ -65,7 +65,7 @@ size_t GetThreadsCount(int argc, char *argv[])
     return threadsCount;
 }
 
-int main(int argc, char *argv[]) 
+int RunApp(int argc, char *argv[])
 {
     std::shared_ptr<spdlog::logger> defaultLogger;
     spdlog::set_default_logger(std::move(IntializeLogging()));
@@ -92,4 +92,13 @@ int main(int argc, char *argv[])
     ioContext.run();
 
     return EXIT_SUCCESS;
+}
+
+int main(int argc, char *argv[]) {
+    try {
+        return RunApp(argc, argv);
+    } catch (const std::exception &e) {
+        std::cerr << "Exception occurred: " << e.what() << std::endl;
+        return EXIT_FAILURE;
+    }
 }

@@ -13,7 +13,7 @@ constexpr bool IsFail(ResultCode rc)
 
 constexpr bool IsFail(bool rc)
 {
-    return rc;
+    return !rc;
 }
 
 constexpr const char* FormatResultCode(ResultCode rc)

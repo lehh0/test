@@ -29,7 +29,7 @@ ResultCode ToHttpConfig(int argc, char *argv[], net::server::HttpServer::Config 
     }
 
     // todo: test cyrillic path
-    auto docRoot = absolute(canonical(std::filesystem::path(argv[1])));
+    auto docRoot = absolute(canonical(std::filesystem::path(argv[2])));
     if (!is_directory(docRoot)) 
     {
         spdlog::error("<doc_root> value [{}] isn't directory", docRoot.string());
@@ -53,7 +53,7 @@ size_t GetThreadsCount(int argc, char *argv[])
 {
     size_t threadsCount{1};
 
-    if (argc <= 4
+    if (argc < 4
         || !boost::conversion::try_lexical_convert(argv[1], threadsCount) 
         || threadsCount < 1) 
     {

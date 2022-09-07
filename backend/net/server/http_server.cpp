@@ -1,10 +1,10 @@
 #include "http_server.hpp"
 
-#include <format>
 #include <string_view>
 
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
+#include <fmt/xchar.h>
 
 namespace net::server {
 
@@ -28,7 +28,7 @@ boost::asio::awaitable<void> HttpServer::Run()
     acceptor.set_option(boost::asio::ip::tcp::acceptor::keep_alive(true));
 
     // todo: sync just in case?
-    m_config.serverUrl = std::format(L"http://{}:{}", m_config.hostName, m_config.port);
+    m_config.serverUrl = fmt::format(L"http://{}:{}", m_config.hostName, m_config.port);
 
     // todo: log info: Server listening on {}", m_config.serverUrl
     

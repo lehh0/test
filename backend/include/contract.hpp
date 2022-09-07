@@ -2,7 +2,9 @@
 #define BACKEND_INCLUDE_CONTRACT_HPP
 
 #include <filesystem>
+
 #include <boost/current_function.hpp>
+#include <fmt/xchar.h>
 #include <include/result_code.hpp>
 #include <spdlog/spdlog.h>
 
@@ -118,15 +120,15 @@ inline ResultCode ManageException(std::string msg)
     }
     catch (const ResultCodeException &e) 
     {
-        TRACE_ERROR_RC(e.m_rc, std::format("{} {}", msg, e.m_msg));
+        TRACE_ERROR_RC(e.m_rc, fmt::format("{} {}", msg, e.m_msg));
     }
     catch (const std::exception& e) 
     {
-        TRACE_ERROR(std::format("{} {}", msg, e.what()));
+        TRACE_ERROR(fmt::format("{} {}", msg, e.what()));
     }
     catch (...) 
     {
-        TRACE_ERROR(std::format("{} unknown error", msg));
+        TRACE_ERROR(fmt::format("{} unknown error", msg));
     }
 
     return ResultCode::eFail;

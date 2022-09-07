@@ -3,6 +3,7 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/http/read.hpp>
 #include <boost/beast/http/string_body.hpp>
+#include <fmt/xchar.h>
 #include <spdlog/spdlog.h>
 
 #include <include/as_result.hpp>
@@ -19,7 +20,7 @@ std::pair<std::filesystem::path, std::string_view> ParseTarget(boost::beast::str
 
     if (queryStringBegin != boost::beast::string_view::npos) 
     {
-        spdlog::debug(BOOST_CURRENT_FUNCTION " query string found [{}]", queryStringBegin);
+        TRACE_DEBUG(fmt::format("query string found [{}])", queryStringBegin));
 
         auto const path = target.substr(0, queryStringBegin);
         target.remove_prefix(queryStringBegin);
@@ -58,7 +59,7 @@ boost::asio::awaitable<void> HttpConnectionHandler::Handle(boost::asio::ip::tcp:
 
         if (!result) 
         {
-            TRACE_ERROR(std::format(
+            TRACE_ERROR(fmt::format(
                     " can't async_read from stream [{}]",
                     result.error().to_string()))
             break;
@@ -66,12 +67,12 @@ boost::asio::awaitable<void> HttpConnectionHandler::Handle(boost::asio::ip::tcp:
 
         auto method = request.method_string();
         auto target = request.target();
-        TRACE_INFO(std::format(" got request [{}] [{}]", 
+        TRACE_INFO(fmt::format(" got request [{}] [{}]",
                     std::string_view(method.data(), method.size()),
                     std::string_view(target.data(), target.size())));
 
         auto [path, queryString] = ParseTarget(request.target());
-        TRACE_INFO(std::format(" path [{}] query [{}]", path.string(), queryString));
+        TRACE_INFO(fmt::format(" path [{}] query [{}]", path.string(), queryString));
 
         // todo: return requested file
     }

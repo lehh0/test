@@ -63,35 +63,37 @@ public:
     const std::string m_msg;
 };
 
+// TODO: pass BOOST_CURRENT_FUNCTION to compile-time format string
 #define TRACE_DEBUG(msg) \
-    spdlog::debug(BOOST_CURRENT_FUNCTION " {}", msg);
+    spdlog::debug("{}: {}", BOOST_CURRENT_FUNCTION, msg);
 
 #define TRACE_INFO(msg) \
-    spdlog::info(BOOST_CURRENT_FUNCTION " {}", msg);
+    spdlog::info("{}: {}", BOOST_CURRENT_FUNCTION, msg);
 
 #define TRACE_ERROR(msg) \
-    spdlog::error(BOOST_CURRENT_FUNCTION " {}", msg);
+    spdlog::error("{}: {}", BOOST_CURRENT_FUNCTION, msg);
 
-#define TRACE_ERROR_RC(resultCode, msg)               \
-    spdlog::error(BOOST_CURRENT_FUNCTION " ({}) {}",  \
+#define TRACE_ERROR_RC(resultCode, msg)                             \
+    spdlog::error("{}: ({}) {}", BOOST_CURRENT_FUNCTION,            \
             FormatResultCode(resultCode), msg);
 
-#define CHECK(funcCall, msg)                         \
-    {                                                \
-        auto resultCode = (funcCall);                \
-        if (IsFail(resultCode)) {                    \
-            throw ResultCodeException(resultCode,    \
-                     BOOST_CURRENT_FUNCTION msg);    \
-        }                                            \
+// TODO: avoid unnecessary allocation caused by std::string::operator+
+#define CHECK(funcCall, msg)                                        \
+    {                                                               \
+        auto resultCode = (funcCall);                               \
+        if (IsFail(resultCode)) {                                   \
+            throw ResultCodeException(resultCode,                   \
+                     std::string(BOOST_CURRENT_FUNCTION) + msg);    \
+        }                                                           \
     }
 
-#define CHECK_SUCCEEDED(funcCall, msg)            \
-    {                                             \
-        bool resultCode = (funcCall);             \
-        if (IsFail(resultCode)) {                 \
-            throw ResultCodeException(resultCode, \
-                BOOST_CURRENT_FUNCTION msg);      \
-        }                                         \
+#define CHECK_SUCCEEDED(funcCall, msg)                              \
+    {                                                               \
+        bool resultCode = (funcCall);                               \
+        if (IsFail(resultCode)) {                                   \
+            throw ResultCodeException(resultCode,                   \
+                std::string(BOOST_CURRENT_FUNCTION) + msg);         \
+        }                                                           \
     }
 
 #define CHECK_RETURN(funcCall, msg)               \
